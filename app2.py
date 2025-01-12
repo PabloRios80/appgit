@@ -1,26 +1,57 @@
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import streamlit as st
+import gspread
+import json
+import os
+from google.oauth2.service_account import Credentials
 import pandas as pd
 from datetime import datetime
 
-# Authenticate and connect to Google Sheets
-def connect_to_gsheet(creds_json,spreadsheet_name,sheet_name):
-    scope = ["https://spreadsheets.google.com/feeds", 'https://www.googleapis.com/auth/spreadsheets',
-             "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
-    
-    credentials = ServiceAccountCredentials.from_json_keyfile_name(creds_json, scope)
-    client = gspread.authorize(credentials)
-    spreadsheet = client.open(spreadsheet_name)  # Access the first sheet
-    return spreadsheet.worksheet(sheet_name)
+def connect_to_gsheet(spreadsheet_name, sheet_name):
+    try:
+        credentials_json = os.environ.get("GOOGLE_CREDENTIALS")
 
+        if credentials_json:  # Streamlit Cloud (variables de entorno)
+            credentials = Credentials.from_service_account_info(
+                json.loads(credentials_json),
+                scopes=['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+            )
+        else:  # Local (secrets.toml)
+            try:
+                from streamlit import secrets
+                credentials = Credentials.from_service_account_info(
+                    secrets["GOOGLE_CREDENTIALS"],
+                    scopes=['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+                )
+            except FileNotFoundError:
+                st.error("Error: Archivo secrets.toml no encontrado. Crea un archivo .streamlit/secrets.toml con tus credenciales (local).")
+                return None
+            except KeyError:
+                st.error("Error: Credenciales no encontradas en secrets.toml. Verifica el formato y contenido (local).")
+                return None
+            except ModuleNotFoundError:
+                st.error("Error: Streamlit no está instalado. Ejecuta 'pip install streamlit' (local).")
+                return None
+
+        gc = gspread.authorize(credentials) #Se crea el cliente con las nuevas credenciales
+        sh = gc.open(spreadsheet_name)
+        worksheet = sh.sheet1 #Se selecciona la hoja de calculo
+        return worksheet
+
+    except gspread.exceptions.SpreadsheetNotFound:
+        st.error(f"Error: No se encontró la hoja de cálculo '{spreadsheet_name}'. Verifica el nombre.")
+        return None
+    except gspread.exceptions.WorksheetNotFound:
+        st.error(f"Error: No se encontró la hoja '{sheet_name}' en la hoja de cálculo '{spreadsheet_name}'.")
+        return None
+    except Exception as e:
+        st.error(f"Error al conectar con Google Sheets: {e}")
+        return None
 # Google Sheet credentials file
 SPREADSHEET_NAME = 'miniforma'
 SHEET_NAME = 'datos'
-CREDENTIALS_FILE = './credentials.json'
 
 # Connect to the Google Sheet
-sheet_by_name = connect_to_gsheet(CREDENTIALS_FILE, SPREADSHEET_NAME, sheet_name=SHEET_NAME)
+sheet_by_name = connect_to_gsheet(SPREADSHEET_NAME, sheet_name=SHEET_NAME)
 
 st.title("Beneficiarios")
 
