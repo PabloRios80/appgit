@@ -3,19 +3,23 @@ import gspread
 import json
 import os
 from google.oauth2.service_account import Credentials
-import pandas as pd
-from datetime import datetime
+import pandas as pd #Import para pandas
+from datetime import datetime #Import para datetime
 
 def connect_to_gsheet(spreadsheet_name, sheet_name):
     try:
         credentials_json = os.environ.get("GOOGLE_CREDENTIALS")
 
-        if credentials_json:  # Streamlit Cloud (variables de entorno)
-            credentials = Credentials.from_service_account_info(
-                json.loads(credentials_json),
-                scopes=['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-            )
-        else:  # Local (secrets.toml)
+        if credentials_json:  # Streamlit Cloud (variables de entorno - JSON)
+            try:
+                credentials = Credentials.from_service_account_info(
+                    json.loads(credentials_json),
+                    scopes=['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+                )
+            except json.JSONDecodeError as e:
+                st.error(f"Error al decodificar JSON de credenciales en Streamlit Cloud: {e}. Revisa el Secret GOOGLE_CREDENTIALS. Asegúrate de que no tenga comillas adicionales.")
+                return None
+        else:  # Local (secrets.toml - DICCIONARIO)
             try:
                 from streamlit import secrets
                 credentials = Credentials.from_service_account_info(
@@ -32,26 +36,24 @@ def connect_to_gsheet(spreadsheet_name, sheet_name):
                 st.error("Error: Streamlit no está instalado. Ejecuta 'pip install streamlit' (local).")
                 return None
 
-        gc = gspread.authorize(credentials) #Se crea el cliente con las nuevas credenciales
-        sh = gc.open(spreadsheet_name)
-        worksheet = sh.sheet1 #Se selecciona la hoja de calculo
-        return worksheet
+        gc = gspread.authorize(credentials)
+        try:
+          sh = gc.open(spreadsheet_name)
+          worksheet = sh.sheet1 #Se selecciona la primera hoja
+          return worksheet
+        except gspread.exceptions.SpreadsheetNotFound:
+            st.error(f"Error: No se encontró la hoja de cálculo '{spreadsheet_name}'. Verifica el nombre.")
+            return None
 
-    except gspread.exceptions.SpreadsheetNotFound:
-        st.error(f"Error: No se encontró la hoja de cálculo '{spreadsheet_name}'. Verifica el nombre.")
-        return None
-    except gspread.exceptions.WorksheetNotFound:
-        st.error(f"Error: No se encontró la hoja '{sheet_name}' en la hoja de cálculo '{spreadsheet_name}'.")
-        return None
     except Exception as e:
-        st.error(f"Error al conectar con Google Sheets: {e}")
+        st.error(f"Error general al conectar con Google Sheets: {e}")
         return None
 # Google Sheet credentials file
 SPREADSHEET_NAME = 'miniforma'
 SHEET_NAME = 'datos'
 
 # Connect to the Google Sheet
-sheet_by_name = connect_to_gsheet(SPREADSHEET_NAME, sheet_name=SHEET_NAME)
+sheet_by_name = connect_to_gsheet(SPREADSHEET_NAME,SHEET_NAME)
 
 st.title("Beneficiarios")
 
