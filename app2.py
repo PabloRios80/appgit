@@ -183,7 +183,7 @@ if submitted:
         df = read_data()  # Re-read the data after submission
 
 # Display data in the main view
-st.header("Data Table")
+st.header("Tabla de Datos")
 df = read_data()
 
 st.dataframe(df, width=900, height=600)  # Display the data in a table
