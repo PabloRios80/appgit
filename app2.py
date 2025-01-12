@@ -48,12 +48,17 @@ def connect_to_gsheet(spreadsheet_name, sheet_name):
     except Exception as e:
         st.error(f"Error general al conectar con Google Sheets: {e}")
         return None
+
 # Google Sheet credentials file
 SPREADSHEET_NAME = 'miniforma'
 SHEET_NAME = 'datos'
 
 # Connect to the Google Sheet
 sheet_by_name = connect_to_gsheet(SPREADSHEET_NAME,SHEET_NAME)
+
+if sheet_by_name is None: #Se verifica si hubo un error en la conexion
+    st.stop() #Si hubo un error se detiene la ejecucion
+
 
 st.title("Beneficiarios")
 
